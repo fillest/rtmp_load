@@ -1,0 +1,4 @@
+venv/*
+.bold_state
+build/*
+*.pyc
