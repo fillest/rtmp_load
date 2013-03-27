@@ -1,6 +1,6 @@
 /*
 ** Trace recorder (bytecode -> SSA IR).
-** Copyright (C) 2005-2012 Mike Pall. See Copyright Notice in luajit.h
+** Copyright (C) 2005-2013 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #define lj_record_c
@@ -1121,7 +1121,7 @@ static TRef rec_idx_key(jit_State *J, RecordIndex *ix)
     return lj_ir_kkptr(J, niltvg(J2G(J)));
   }
   if (tref_isinteger(key))  /* Hash keys are based on numbers, not ints. */
-    ix->key = key = emitir(IRTN(IR_CONV), key, IRCONV_NUM_INT);
+    key = emitir(IRTN(IR_CONV), key, IRCONV_NUM_INT);
   if (tref_isk(key)) {
     /* Optimize lookup of constant hash keys. */
     MSize hslot = (MSize)((char *)ix->oldv - (char *)&noderef(t->node)[0].val);
@@ -1808,12 +1808,10 @@ void lj_record_ins(jit_State *J)
       int diff;
       rec_comp_prep(J);
       diff = lj_record_objcmp(J, ra, rc, rav, rcv);
-      if (diff == 1 && (tref_istab(ra) || tref_isudata(ra))) {
-	/* Only check __eq if different, but the same type (table or udata). */
+      if (diff == 2 || !(tref_istab(ra) || tref_isudata(ra)))
+	rec_comp_fixup(J, J->pc, ((int)op & 1) == !diff);
+      else if (diff == 1)  /* Only check __eq if different, but same type. */
 	rec_mm_equal(J, &ix, (int)op);
-	break;
-      }
-      rec_comp_fixup(J, J->pc, ((int)op & 1) == !diff);
     }
     break;
 

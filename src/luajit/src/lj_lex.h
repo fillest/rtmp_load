@@ -1,7 +1,6 @@
 /*
 ** Lexical analyzer.
-** Major parts taken verbatim from the Lua interpreter.
-** Copyright (C) 1994-2008 Lua.org, PUC-Rio. See Copyright Notice in lua.h
+** Copyright (C) 2005-2013 Mike Pall. See Copyright Notice in luajit.h
 */
 
 #ifndef _LJ_LEX_H
@@ -41,9 +40,11 @@ typedef struct BCInsLine {
 
 /* Info for local variables. Only used during bytecode generation. */
 typedef struct VarInfo {
-  GCRef name;		/* Local variable name. */
+  GCRef name;		/* Local variable name or goto/label name. */
   BCPos startpc;	/* First point where the local variable is active. */
   BCPos endpc;		/* First point where the local variable is dead. */
+  uint8_t slot;		/* Variable slot. */
+  uint8_t info;		/* Variable/goto/label info. */
 } VarInfo;
 
 /* Lua lexer state. */
