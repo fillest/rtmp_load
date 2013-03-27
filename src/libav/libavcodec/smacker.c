@@ -267,9 +267,9 @@ static int smacker_decode_header_tree(SmackVContext *smk, GetBitContext *gb, int
     *recodes = huff.values;
 
     if(vlc[0].table)
-        free_vlc(&vlc[0]);
+        ff_free_vlc(&vlc[0]);
     if(vlc[1].table)
-        free_vlc(&vlc[1]);
+        ff_free_vlc(&vlc[1]);
     av_free(tmp1.bits);
     av_free(tmp1.lengths);
     av_free(tmp1.values);
@@ -662,7 +662,7 @@ static int smka_decode_frame(AVCodecContext *avctx, void *data,
     }
     if(bits) { //decode 16-bit data
         for(i = stereo; i >= 0; i--)
-            pred[i] = av_bswap16(get_bits(&gb, 16));
+            pred[i] = sign_extend(av_bswap16(get_bits(&gb, 16)), 16);
         for(i = 0; i <= stereo; i++)
             *samples++ = pred[i];
         for(; i < unp_size / 2; i++) {
@@ -720,7 +720,7 @@ static int smka_decode_frame(AVCodecContext *avctx, void *data,
 
     for(i = 0; i < 4; i++) {
         if(vlc[i].table)
-            free_vlc(&vlc[i]);
+            ff_free_vlc(&vlc[i]);
         av_free(h[i].bits);
         av_free(h[i].lengths);
         av_free(h[i].values);

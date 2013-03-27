@@ -1073,6 +1073,7 @@ HAVE_LIST="
     dlfcn_h
     dlopen
     dos_paths
+    dxva_h
     ebp_available
     ebx_available
     exp2
@@ -2392,7 +2393,7 @@ check_host_cflags -std=c99
 check_host_cflags -Wall
 
 case "$arch" in
-    alpha|ia64|mips|parisc|sparc)
+    alpha|ia64|mips|parisc|ppc|sparc)
         spic=$shared
     ;;
     x86)
@@ -2723,17 +2724,14 @@ elif enabled ppc; then
         check_cc <<EOF || disable altivec
 $inc_altivec_h
 int main(void) {
-    vector signed int v1, v2, v3;
-    v1 = vec_add(v2,v3);
+    vector signed int v1 = (vector signed int) { 0 };
+    vector signed int v2 = (vector signed int) { 1 };
+    v1 = vec_add(v1, v2);
     return 0;
 }
 EOF
 
-        # check if our compiler supports braces for vector declarations
-        check_cc <<EOF || die "You need a compiler that supports {} in AltiVec vector declarations."
-$inc_altivec_h
-int main (void) { (vector int) {1}; return 0; }
-EOF
+        enabled altivec || warn "Altivec disabled, possibly missing --cpu flag"
     fi
 
 elif enabled sparc; then
@@ -2785,9 +2783,8 @@ EOF
             elf*) enabled debug && append YASMFLAGS $yasm_debug ;;
         esac
 
-        check_yasm "pextrd [eax], xmm0, 1" && enable yasm ||
+        check_yasm "vextractf128 xmm0, ymm0, 0" && enable yasm ||
             die "yasm not found, use --disable-yasm for a crippled build"
-        check_yasm "vextractf128 xmm0, ymm0, 0" || disable avx
     fi
 
     case "$cpu" in
@@ -2870,6 +2867,7 @@ check_func_headers windows.h MapViewOfFile
 check_func_headers windows.h VirtualAlloc
 
 check_header dlfcn.h
+check_header dxva.h
 check_header dxva2api.h
 check_header malloc.h
 check_header poll.h

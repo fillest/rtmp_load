@@ -2,6 +2,87 @@ Entries are sorted chronologically from oldest to youngest within each release,
 releases are sorted from youngest to oldest.
 
 
+version 0.8.6:
+
+- Build system fixes: Fix Altivec detection (Debian Bug#701710) and fix
+  CAF demuxer dependencies
+- Various minor documentation fixes
+- atrac3: avoid oversized shifting in decode_bytes()
+- dsputil: fix invalid array indexing
+- flacdec: simplify bounds checking in flac_probe() to avoid undefined behavior.
+- h264: check for luma and chroma bit depth being equal (CVE-2013-2277)
+- iff: validate CMAP palette size (CVE-2013-2495)
+- indeo3: initialise pixel planes on allocation
+- ivi_common: do not call MC for intra frames when dc_transform is unset
+- lavf: fix arithmetic overflows in avformat_seek_file()
+- lzo: fix overflow checking in copy_backptr()
+- matroskadec: request a read buffer for the wav header
+- mp3: exit on parsing error in mp_decode_frame
+- msrledec: convert to bytestream2 API and add proper bounds checking (CVE-2013-2496)
+- oggdec: make sure the private parse data is cleaned up
+- parser: fix large overreads
+- png: use av_mallocz_array() for the zlib zalloc function, avoids accessing uninitialized memory
+- pthread: set the frame properties from the thread context, not user
+- roqvideodec: fix a potential infinite loop in roqvideo_decode_frame()
+- update year to 2013
+- various potentially security relevant fixes to the shorten decoder
+- vmdaudio: fix invalid reads when packet size is not a multiple of chunk size
+- vorbisdec: Error on bark_map_size equal to 0 (CVE-2013-0894)
+- wmadec: require block_align to be set
+- wmaprodec: require block_align to be set, avoids infinite loop
+- wmaprodec: return an error, not 0, when the input is too small
+- xxan: fix invalid memory access in xan_decode_frame_type0()
+
+
+version 0.8.5:
+
+- Several bugs and crashes have been fixed in the following codecs:
+  Indeo 4 (CVE-2012-2791), VP5/VP6 (CVE-2012-2783), Indeo 3 (CVE-2012-2804),
+  MPEG-1/2 (CVE-2012-2803), MP3 (CVE-2012-2797), AAC (CVE-2012-5144),
+  AC-3 (CVE-2012-2802), AVS (CVE-2012-2801), DFA (CVE-2012-2798)
+
+- backported hardening patches for h264 and svq3
+
+- smaller bug fixes in id3v2 (Bug 395), RTSP, option handling, ALAC,
+  Flash Screen Video
+
+- unconditionally enable PIC on PowerPC
+
+- x86: Require an assembler able to cope with AVX instructions
+
+- fix a serious memory leak on broken Ogg files
+
+
+version 0.8.4:
+
+- Several bugs and crashes have been fixed in the following codecs:
+  h264 (Bug 118), vc1dec (CVE-2012-2796), sipr, bmpdec (bug 367), alsdec
+  (CVE-2012-2775), rv34/rv40 (CVE-2012-2772), indeo3/indeo4
+  (CVE-2012-2776, CVE-2012-2779, CVE-2012-2787, CVE-2012-2794,
+  CVE-2012-2800), vorbisenc, vorbisdec (Bug 277), snow, ac3dec
+  (CVE-2012-2802), avsdec (CVE-2012-2801), dfa (CVE-2012-2786,
+  CVE-2012-2798), lagrith (CVE-2012-2793), wmaprodec (CVE-2012-2789 &
+  Bug 327), avidec (CVE-2012-2788, CVE-2012-2790), cavsdec
+  (CVE-2012-2777, CVE-2012-2784), wav (Bug 379), yuff4mpeg (Bug 373),
+  mpegaudio, tiffenc, smacker (Bug 265).
+
+- smaller bug fixes in avconv (Bug 352)
+
+- fix lt() and lte() in function evaluator
+
+- fix segfault in avformat_open_input()
+
+- fix segfault in golomb decoder (bug 310)
+
+- fix segfault (double free) in libavfilter
+
+- convert dfa decoder to bytestream2 API to protect from overreads
+
+- bugfix in vf_pad/scale filter (Bug 203 & 245)
+
+- lavc: remove stats_out and stats_in from the options table. (Bug 380)
+
+
 version 0.8.3:
 
 - Several bugs and crashes have been fixed in the following codecs: PNG,

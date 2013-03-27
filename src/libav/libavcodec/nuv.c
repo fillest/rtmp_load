@@ -184,8 +184,9 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size,
     }
     if (c->codec_frameheader) {
         int w, h, q;
-        if (buf[0] != 'V' || buf_size < 12) {
-            av_log(avctx, AV_LOG_ERROR, "invalid nuv video frame (wrong codec_tag?)\n");
+        if (buf_size < RTJPEG_HEADER_SIZE || buf[4] != RTJPEG_HEADER_SIZE ||
+            buf[5] != RTJPEG_FILE_VERSION) {
+            av_log(avctx, AV_LOG_ERROR, "invalid nuv video frame\n");
             return AVERROR_INVALIDDATA;
         }
         w = AV_RL16(&buf[6]);
@@ -193,8 +194,8 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size,
         q = buf[10];
         if (!codec_reinit(avctx, w, h, q))
             return -1;
-        buf = &buf[12];
-        buf_size -= 12;
+        buf = &buf[RTJPEG_HEADER_SIZE];
+        buf_size -= RTJPEG_HEADER_SIZE;
     }
 
     if (keyframe && c->pic.data[0])

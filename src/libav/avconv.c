@@ -226,6 +226,7 @@ typedef struct OutputStream {
     int64_t *forced_kf_pts;
     int forced_kf_count;
     int forced_kf_index;
+    char *forced_keyframes;
 
     /* audio only */
     int audio_resample;
@@ -454,7 +455,7 @@ static int alloc_buffer(InputStream *ist, FrameBuffer **pbuf)
         const int v_shift = i==0 ? 0 : v_chroma_shift;
         if (s->flags & CODEC_FLAG_EMU_EDGE)
             buf->data[i] = buf->base[i];
-        else
+        else if (buf->base[i])
             buf->data[i] = buf->base[i] +
                            FFALIGN((buf->linesize[i]*edge >> v_shift) +
                                    (pixel_size*edge >> h_shift), 32);
@@ -687,6 +688,7 @@ void exit_program(int ret)
             av_freep(&frame);
         }
 
+        av_freep(&output_streams[i].forced_keyframes);
 #if CONFIG_AVFILTER
         av_freep(&output_streams[i].avfilter);
 #endif
@@ -2229,6 +2231,37 @@ static int init_input_stream(int ist_index, OutputStream *output_streams, int nb
     return 0;
 }
 
+static void parse_forced_key_frames(char *kf, OutputStream *ost,
+                                    AVCodecContext *avctx)
+{
+    char *p;
+    int n = 1, i;
+    int64_t t;
+
+    for (p = kf; *p; p++)
+        if (*p == ',')
+            n++;
+    ost->forced_kf_count = n;
+    ost->forced_kf_pts   = av_malloc(sizeof(*ost->forced_kf_pts) * n);
+    if (!ost->forced_kf_pts) {
+        av_log(NULL, AV_LOG_FATAL, "Could not allocate forced key frames array.\n");
+        exit_program(1);
+    }
+
+    p = kf;
+    for (i = 0; i < n; i++) {
+        char *next = strchr(p, ',');
+
+        if (next)
+            *next++ = 0;
+
+        t = parse_time_or_die("force_key_frames", p, 1);
+        ost->forced_kf_pts[i] = av_rescale_q(t, AV_TIME_BASE_Q, avctx->time_base);
+
+        p = next;
+    }
+}
+
 static int transcode_init(OutputFile *output_files,
                           int nb_output_files,
                           InputFile *input_files,
@@ -2444,6 +2477,9 @@ static int transcode_init(OutputFile *output_files,
                     exit(1);
                 }
 #endif
+                if (ost->forced_keyframes)
+                    parse_forced_key_frames(ost->forced_keyframes, ost,
+                                            ost->st->codec);
                 break;
             case AVMEDIA_TYPE_SUBTITLE:
                 break;
@@ -2668,6 +2704,8 @@ static int transcode(OutputFile *output_files,
             double  opts;
             ost = &output_streams[i];
             of = &output_files[ost->file_index];
+            if (ost->source_index < 0)
+                continue;
             os = output_files[ost->file_index].ctx;
             ist = &input_streams[ost->source_index];
             if (ost->is_past_recording_time || no_packet[ist->file_index] ||
@@ -3065,6 +3103,8 @@ static int copy_metadata(char *outspec, char *inspec, AVFormatContext *oc, AVFor
             METADATA_CHECK_INDEX(index, context->nb_programs, "program")\
             meta = &context->programs[index]->metadata;\
             break;\
+        case 's':\
+            break; /* handled separately below */ \
         }\
 
     SET_DICT(type_in, meta_in, ic, idx_in);
@@ -3362,29 +3402,6 @@ static int opt_input_file(OptionsContext *o, const char *opt, const char *filena
     return 0;
 }
 
-static void parse_forced_key_frames(char *kf, OutputStream *ost,
-                                    AVCodecContext *avctx)
-{
-    char *p;
-    int n = 1, i;
-    int64_t t;
-
-    for (p = kf; *p; p++)
-        if (*p == ',')
-            n++;
-    ost->forced_kf_count = n;
-    ost->forced_kf_pts   = av_malloc(sizeof(*ost->forced_kf_pts) * n);
-    if (!ost->forced_kf_pts) {
-        av_log(NULL, AV_LOG_FATAL, "Could not allocate forced key frames array.\n");
-        exit_program(1);
-    }
-    for (i = 0; i < n; i++) {
-        p = i ? strchr(p, ',') + 1 : kf;
-        t = parse_time_or_die("force_key_frames", p, 1);
-        ost->forced_kf_pts[i] = av_rescale_q(t, AV_TIME_BASE_Q, avctx->time_base);
-    }
-}
-
 static uint8_t *get_line(AVIOContext *s)
 {
     AVIOContext *line;
@@ -3455,8 +3472,6 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
     char *bsf = NULL, *next, *codec_tag = NULL;
     AVBitStreamFilterContext *bsfc, *bsfc_prev = NULL;
     double qscale = -1;
-    char *buf = NULL, *arg = NULL, *preset = NULL;
-    AVIOContext *s = NULL;
 
     if (!st) {
         av_log(NULL, AV_LOG_FATAL, "Could not alloc stream.\n");
@@ -3475,36 +3490,39 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
     st->codec->codec_type = type;
     choose_encoder(o, oc, ost);
     if (ost->enc) {
+        AVIOContext *s = NULL;
+        char *buf = NULL, *arg = NULL, *preset = NULL;
+
         ost->opts  = filter_codec_opts(codec_opts, ost->enc->id, oc, st);
+
+        MATCH_PER_STREAM_OPT(presets, str, preset, oc, st);
+        if (preset && (!(ret = get_preset_file_2(preset, ost->enc->name, &s)))) {
+            do {
+                buf = get_line(s);
+                if (!buf[0] || buf[0] == '#') {
+                    av_free(buf);
+                    continue;
+                }
+                if (!(arg = strchr(buf, '='))) {
+                    av_log(NULL, AV_LOG_FATAL, "Invalid line found in the preset file.\n");
+                    exit_program(1);
+                }
+                *arg++ = 0;
+                av_dict_set(&ost->opts, buf, arg, AV_DICT_DONT_OVERWRITE);
+                av_free(buf);
+            } while (!s->eof_reached);
+            avio_close(s);
+        }
+        if (ret) {
+            av_log(NULL, AV_LOG_FATAL,
+                   "Preset %s specified for stream %d:%d, but could not be opened.\n",
+                   preset, ost->file_index, ost->index);
+            exit_program(1);
+        }
     }
 
     avcodec_get_context_defaults3(st->codec, ost->enc);
     st->codec->codec_type = type; // XXX hack, avcodec_get_context_defaults2() sets type to unknown for stream copy
-
-    MATCH_PER_STREAM_OPT(presets, str, preset, oc, st);
-    if (preset && (!(ret = get_preset_file_2(preset, ost->enc->name, &s)))) {
-        do  {
-            buf = get_line(s);
-            if (!buf[0] || buf[0] == '#') {
-                av_free(buf);
-                continue;
-            }
-            if (!(arg = strchr(buf, '='))) {
-                av_log(NULL, AV_LOG_FATAL, "Invalid line found in the preset file.\n");
-                exit_program(1);
-            }
-            *arg++ = 0;
-            av_dict_set(&ost->opts, buf, arg, AV_DICT_DONT_OVERWRITE);
-            av_free(buf);
-        } while (!s->eof_reached);
-        avio_close(s);
-    }
-    if (ret) {
-        av_log(NULL, AV_LOG_FATAL,
-               "Preset %s specified for stream %d:%d, but could not be opened.\n",
-               preset, ost->file_index, ost->index);
-        exit_program(1);
-    }
 
     ost->max_frames = INT64_MAX;
     MATCH_PER_STREAM_OPT(max_frames, i64, ost->max_frames, oc, st);
@@ -3576,7 +3594,7 @@ static OutputStream *new_video_stream(OptionsContext *o, AVFormatContext *oc)
 
     if (!ost->stream_copy) {
         const char *p = NULL;
-        char *forced_key_frames = NULL, *frame_rate = NULL, *frame_size = NULL;
+        char *frame_rate = NULL, *frame_size = NULL;
         char *frame_aspect_ratio = NULL, *frame_pix_fmt = NULL;
         char *intra_matrix = NULL, *inter_matrix = NULL, *filters = NULL;
         int i;
@@ -3659,9 +3677,9 @@ static OutputStream *new_video_stream(OptionsContext *o, AVFormatContext *oc)
             }
         }
 
-        MATCH_PER_STREAM_OPT(forced_key_frames, str, forced_key_frames, oc, st);
-        if (forced_key_frames)
-            parse_forced_key_frames(forced_key_frames, ost, video_enc);
+        MATCH_PER_STREAM_OPT(forced_key_frames, str, ost->forced_keyframes, oc, st);
+        if (ost->forced_keyframes)
+            ost->forced_keyframes = av_strdup(ost->forced_keyframes);
 
         MATCH_PER_STREAM_OPT(force_fps, i, ost->force_fps, oc, st);
 
