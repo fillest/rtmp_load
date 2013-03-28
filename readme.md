@@ -18,7 +18,7 @@ Copy and edit the test template:
 cp test.lua.example your_test.lua
 ```
 
-You may customize:
+You may configure:
 * *rtmp_string* - server address
 * *is_live* - 0 (default) or 1
 * *delay_ms* - by default random 0-999 - delay before a thread starts
@@ -37,6 +37,12 @@ Run the test:
 ```bash
 ./run.py your_test.lua
 ```
+
+## Design
+There are three layers:
+* The C core that handles RTMP stream with [libav](http://libav.org/), [librtmp](http://rtmpdump.mplayerhq.hu/librtmp.3.html) and threads. It collects some metrics and writes it to stdout.
+* The Lua/LuaJIT scripting layer that manages threads and configuration
+* The Python script that launches the core, consumes the metrics from it and computes statistics
 
 ## Issues
 Please submit any bugs or feedback to [the issue tracker](https://github.com/fillest/rtmp_load/issues)
