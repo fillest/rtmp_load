@@ -37,6 +37,7 @@ void *process_stream (void *param) {
 
     AVFormatContext *fctx = NULL;
     // pthread_mutex_lock(&mutexsum);
+    // fprintf(stderr, "str: %s\n", params->rtmp_string);
     int err = avformat_open_input(&fctx, params->rtmp_string, NULL, NULL); 
     // pthread_mutex_unlock(&mutexsum);
     if (err != 0) {
@@ -117,7 +118,7 @@ void *process_stream (void *param) {
         }
     }
     av_strerror(err, errbuf, ERRBUF_SZ);
-    fprinttfn(stdout, "@stopping_thread %s", errbuf);
+    fprinttfn(stdout, "@stopping_thread %s", errbuf);  //timeout in rtmp string leads to "End of file"
 
     avformat_close_input(&fctx);
 
