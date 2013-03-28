@@ -24,10 +24,18 @@ function _M.spawn_threads (spawn_phases, scenarios)
 		for _ = 1, phase.duration do
 			for _ = 1, phase.rate do
 				local params = _M.weighted_random_choice(scenarios)(thread_id)
+				assert(params.rtmp_string)
+
+				local p = ffi.new("Thread_param")
+				p.id = thread_id
+				p.delay_ms = params.delay_ms or math.random(0, 999)
+				p.is_live = params.is_live or 0
+				p.rtmp_string = ffi.new("char[?]", #params.rtmp_string)
+				ffi.copy(p.rtmp_string, params.rtmp_string)
 
 				local thread = ffi.new("pthread_t[1]")
 				-- print("spawninig thread " .. thread_id)
-				assert(C.pthread_create(thread, attr, C.process_stream, params) == 0)
+				assert(C.pthread_create(thread, attr, C.process_stream, p) == 0)
 
 				table.insert(threads, thread)
 				thread_id = thread_id + 1
@@ -37,7 +45,7 @@ function _M.spawn_threads (spawn_phases, scenarios)
 		end
 	end
 
-	io.stderr:write("All threads have been spawned, joining\n")
+	-- io.stderr:write("All threads have been spawned, joining\n")
 	for _, thread in ipairs(threads) do
 		local status = ffi.new("void *[1]")
 		assert(C.pthread_join(thread[0], status) == 0)
