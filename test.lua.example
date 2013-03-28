@@ -1,0 +1,20 @@
+local util = assert(require 'util')
+local ffi = assert(require 'ffi')
+
+
+local function scenario (thread_id)
+	return {
+		rtmp_string = 'rtmp://localhost:1935/ app= playpath=foobar',
+	}
+end
+
+return function ()
+	local spawn_phases = {
+		{duration = 1, rate = 1},
+	}
+	local scenarios = {
+		[scenario] = 100,
+	}
+
+	util.spawn_threads(spawn_phases, scenarios)
+end
