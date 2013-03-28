@@ -1,7 +1,9 @@
+#!/usr/bin/env python
 import subprocess
 import sys
 import signal
 import datetime
+import argparse
 
 
 def get_median (l):
@@ -15,7 +17,13 @@ def get_median (l):
 		return (float(lower + upper)) / 2
 
 
-cmd = ["build/dev/rtmp_load", "test.lua"]
+parser = argparse.ArgumentParser()
+parser.add_argument('test', help = "test file path")
+parser.add_argument('-b', '--binary-path', default = 'build/dev/rtmp_load', help = "rtmp_load binary path")
+args = parser.parse_args()
+
+
+cmd = [args.binary_path, args.test]
 process = subprocess.Popen(cmd, shell = False, stdout = subprocess.PIPE, bufsize = -1)
 
 now = datetime.datetime.utcnow()
@@ -25,6 +33,7 @@ buf_first_frame_latency = []
 concur_threads = 0
 buf_new_threads_num = 0
 try:
+	print >> sys.stderr, "buf_new_threads_num, concur_threads, med_buffered_frame_num, med_first_frame_latency:"
 	while True:
 		line = process.stdout.readline()
 		if line:
@@ -47,7 +56,7 @@ try:
 				msec = int(parts[3]) * 1000 + int(int(parts[4]) / 1000000) #TODO is correct?
 				buf_first_frame_latency.append(msec)
 			elif rtype == '@error':
-				print parts[3]
+				print '@error', parts[3]
 			else:
 				raise ValueError(rtype)
 
@@ -63,10 +72,11 @@ try:
 			break
 
 	if process.returncode:
-		print >> sys.stderr, "Process returned %s" % process.returncode
+		print >> sys.stderr, "@returncode %s" % process.returncode
 		sys.exit(1)
 except KeyboardInterrupt:
-	print >> sys.stderr, "interrupted"
+	# print >> sys.stderr, "interrupted"
+	pass
 except:
 	process.send_signal(signal.SIGINT)
 	raise
