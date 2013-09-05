@@ -3,10 +3,11 @@
 ## Setup
 ```bash
 sudo apt-get install librtmp0 librtmp-dev yasm pkg-config
+sudo apt-get install python-virtualenv
 cd rtmp_load
 virtualenv --no-site-packages venv
 source venv/bin/activate
-pip install bold
+pip install --upgrade "bold>=0.3"
 bold
 ```
 
