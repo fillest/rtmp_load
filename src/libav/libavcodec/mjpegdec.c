@@ -266,6 +266,13 @@ int ff_mjpeg_decode_sof(MJpegDecodeContext *s)
         s->quant_index[i] = get_bits(&s->gb, 8);
         if (s->quant_index[i] >= 4)
             return -1;
+        if (!s->h_count[i] || !s->v_count[i]) {
+            av_log(s->avctx, AV_LOG_ERROR,
+                   "Invalid sampling factor in component %d %d:%d\n",
+                   i, s->h_count[i], s->v_count[i]);
+            return AVERROR_INVALIDDATA;
+        }
+
         av_log(s->avctx, AV_LOG_DEBUG, "component %d %d:%d id: %d quant:%d\n",
                i, s->h_count[i], s->v_count[i],
                s->component_id[i], s->quant_index[i]);
@@ -711,10 +718,9 @@ static int ljpeg_decode_rgb_scan(MJpegDecodeContext *s, int predictor,
 }
 
 static int ljpeg_decode_yuv_scan(MJpegDecodeContext *s, int predictor,
-                                 int point_transform)
+                                 int point_transform, int nb_components)
 {
     int i, mb_x, mb_y;
-    const int nb_components = 3;
 
     for (mb_y = 0; mb_y < s->mb_height; mb_y++) {
         for (mb_x = 0; mb_x < s->mb_width; mb_x++) {
@@ -957,6 +963,11 @@ static int mjpeg_decode_scan_progressive_ac(MJpegDecodeContext *s, int ss,
     int16_t *quant_matrix = s->quant_matrixes[s->quant_index[c]];
     GetBitContext mb_bitmask_gb;
 
+    if (ss < 0  || ss >= 64 ||
+        se < ss || se >= 64 ||
+        Ah < 0  || Al < 0)
+        return AVERROR_INVALIDDATA;
+
     if (mb_bitmask)
         init_get_bits(&mb_bitmask_gb, mb_bitmask, s->mb_width * s->mb_height);
 
@@ -1108,7 +1119,8 @@ int ff_mjpeg_decode_sos(MJpegDecodeContext *s, const uint8_t *mb_bitmask,
                 if (ljpeg_decode_rgb_scan(s, predictor, point_transform) < 0)
                     return -1;
             } else {
-                if (ljpeg_decode_yuv_scan(s, predictor, point_transform) < 0)
+                if (ljpeg_decode_yuv_scan(s, predictor, point_transform,
+                                          nb_components))
                     return -1;
             }
         }
@@ -1488,6 +1500,12 @@ int ff_mjpeg_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
                 /* Comment */
             else if (start_code == COM)
                 mjpeg_decode_com(s);
+
+            if (!CONFIG_JPEGLS_DECODER &&
+                (start_code == SOF48 || start_code == LSE)) {
+                av_log(avctx, AV_LOG_ERROR, "JPEG-LS support not enabled.\n");
+                return AVERROR(ENOSYS);
+            }
 
             switch (start_code) {
             case SOI:

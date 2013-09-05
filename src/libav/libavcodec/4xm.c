@@ -343,6 +343,10 @@ static void decode_p_block(FourXContext *f, uint16_t *dst, uint16_t *src, int lo
         decode_p_block(f, dst             , src             , log2w, log2h, stride);
         decode_p_block(f, dst + (1<<log2w), src + (1<<log2w), log2w, log2h, stride);
     }else if(code == 3 && f->version<2){
+        if (start > src || src > end) {
+            av_log(f->avctx, AV_LOG_ERROR, "mv out of pic\n");
+            return;
+        }
         mcdc(dst, src, log2w, h, stride, 1, 0);
     }else if(code == 4){
         src += f->mv[bytestream2_get_byte(&f->g)];
@@ -352,6 +356,10 @@ static void decode_p_block(FourXContext *f, uint16_t *dst, uint16_t *src, int lo
         }
         mcdc(dst, src, log2w, h, stride, 1, bytestream2_get_le16(&f->g2));
     }else if(code == 5){
+        if (start > src || src > end) {
+            av_log(f->avctx, AV_LOG_ERROR, "mv out of pic\n");
+            return;
+        }
         mcdc(dst, src, log2w, h, stride, 0, bytestream2_get_le16(&f->g2));
     }else if(code == 6){
         if(log2w){
@@ -633,8 +641,8 @@ static int decode_i2_frame(FourXContext *f, const uint8_t *buf, int length){
             color[0]= bytestream2_get_le16u(&g3);
             color[1]= bytestream2_get_le16u(&g3);
 
-            if(color[0]&0x8000) av_log(NULL, AV_LOG_ERROR, "unk bit 1\n");
-            if(color[1]&0x8000) av_log(NULL, AV_LOG_ERROR, "unk bit 2\n");
+            if(color[0]&0x8000) av_log(f->avctx, AV_LOG_ERROR, "unk bit 1\n");
+            if(color[1]&0x8000) av_log(f->avctx, AV_LOG_ERROR, "unk bit 2\n");
 
             color[2]= mix(color[0], color[1]);
             color[3]= mix(color[1], color[0]);
@@ -663,6 +671,9 @@ static int decode_i_frame(FourXContext *f, const uint8_t *buf, int length){
     unsigned int prestream_size;
     const uint8_t *prestream;
 
+    if (bitstream_size > (1 << 26))
+        return AVERROR_INVALIDDATA;
+
     if (length < bitstream_size + 12) {
         av_log(f->avctx, AV_LOG_ERROR, "packet size too small\n");
         return AVERROR_INVALIDDATA;
@@ -673,13 +684,16 @@ static int decode_i_frame(FourXContext *f, const uint8_t *buf, int length){
     prestream      = buf + bitstream_size + 12;
 
     if(prestream_size + bitstream_size + 12 != length
-       || bitstream_size > (1<<26)
        || prestream_size > (1<<26)){
         av_log(f->avctx, AV_LOG_ERROR, "size mismatch %d %d %d\n", prestream_size, bitstream_size, length);
         return -1;
     }
 
-    prestream= read_huffman_tables(f, prestream);
+    prestream = read_huffman_tables(f, prestream);
+    if (!prestream) {
+        av_log(f->avctx, AV_LOG_ERROR, "Error reading Huffman tables.\n");
+        return AVERROR_INVALIDDATA;
+    }
 
     init_get_bits(&f->gb, buf + 4, 8*bitstream_size);
 
@@ -765,6 +779,9 @@ static int decode_frame(AVCodecContext *avctx,
                 av_log(f->avctx, AV_LOG_ERROR, "cframe id mismatch %d %d\n", id, avctx->frame_number);
             }
 
+            if (f->version <= 1)
+                return AVERROR_INVALIDDATA;
+
             cfrm->size= cfrm->id= 0;
             frame_4cc= AV_RL32("pfrm");
         }else
@@ -807,6 +824,7 @@ static int decode_frame(AVCodecContext *avctx,
                 av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
                 return -1;
             }
+            memset(f->last_picture.data[0], 0, avctx->height * FFABS(f->last_picture.linesize[0]));
         }
 
         p->pict_type= AV_PICTURE_TYPE_P;
