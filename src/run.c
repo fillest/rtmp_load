@@ -8,12 +8,16 @@
 #include "run.h"
 
 
+typedef struct timespec _timespec;
+
+
 #define ERRBUF_SZ 1024
 char errbuf[ERRBUF_SZ];
 
-typedef struct timespec _timespec;
 
 __thread bool got_timestamp = false;
+__thread _timespec connected_time;
+
 
 void *process_stream (void *param) {
     Thread_param *params = (Thread_param *) param;
@@ -27,13 +31,10 @@ void *process_stream (void *param) {
         assert(! nanosleep(&sleep_time, NULL));
     }
 
-    fprinttfn(stdout, "@starting_thread");
-    //TODO remove id?
-    // fprinttfn(stderr, "running thread %i", params->id);
-    // pthread_exit(NULL);
+    fprinttfn(stdout, "@starting_thread %i", params->id);
 
-    struct timespec time_connecting;
-    assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_connecting) == 0);
+    // _timespec start_time;
+    // assert(clock_gettime(CLOCK_MONOTONIC_RAW, &start_time) == 0);
 
     AVFormatContext *avformat_context = NULL;
     // fprintf(stderr, "str: %s\n", params->rtmp_string);
@@ -70,30 +71,30 @@ void *process_stream (void *param) {
         exit(1);
     }
 
-    AVPacket pkt;
-    av_init_packet(&pkt);
+    AVPacket packet;
+    av_init_packet(&packet);
 
-    struct timespec time_last;
+    _timespec time_last;
     assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_last) == 0);
 
     int buffered_frame_num = 0;
     int total_frame_num  = 0;
 
-    while ((err = av_read_frame(avformat_context, &pkt)) == 0) { //"Technically a packet can contain partial frames or other bits of data, but ffmpeg's parser ensures that the packets we get contain either complete or multiple frames. "
-        if (pkt.stream_index == videoStream) {
+    while ((err = av_read_frame(avformat_context, &packet)) == 0) { //"Technically a packet can contain partial frames or other bits of data, but ffmpeg's parser ensures that the packets we get contain either complete or multiple frames. "
+        if (packet.stream_index == videoStream) {
             if (! total_frame_num) {
-                struct timespec time_first_frame;
+                _timespec time_first_frame;
                 assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_first_frame) == 0);
-                struct timespec d = diff_ts(time_connecting, time_first_frame);
+                _timespec d = diff_ts(connected_time, time_first_frame);
                 fprinttfn(stdout, "@first_frame %ld %ld", d.tv_sec, d.tv_nsec); //? tv_sec is time_t..
 
-                if (params->is_live && (! got_timestamp)) {
-                    fprinttfn(stdout, "@error not_live");
-                }
+                // if (params->is_live && (! got_timestamp)) {
+                //     fprinttfn(stdout, "@error not_live");
+                // }
             }
-            struct timespec time_next;
+            _timespec time_next;
             assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_next) == 0);
-            struct timespec d = diff_ts(time_last, time_next);
+            _timespec d = diff_ts(time_last, time_next);
 
             total_frame_num++;
 
@@ -109,8 +110,8 @@ void *process_stream (void *param) {
 
             buffered_frame_num++;
 
-            av_free_packet(&pkt);
-            // //av_init_packet(&packet);? -- there's no call in http://libav.org/doxygen/master/pktdumper_8c_source.html but there is in some snippets
+            av_free_packet(&packet);
+            //av_init_packet(&packet);? -- there's no call in http://libav.org/doxygen/master/pktdumper_8c_source.html but there is in some snippets
         }
     }
     av_strerror(err, errbuf, ERRBUF_SZ);
@@ -139,16 +140,20 @@ void av_log_my_callback (void* ptr, int level, const char* fmt, va_list vl) {
         vsnprintf(line + strlen(line), sizeof(line) - strlen(line), fmt, vl);
         // vsnprintf(line + strlen(line), sizeof(line) - strlen(line), fmt, vl);
         // vsnprintf(line, sizeof(line), fmt, vl);
-        // fputs(line, stderr);
         // fputs(fmt, stderr);
+        // fputs(line, stderr);
 
-        double i1, i2;
-        int n = sscanf(line, "Property: <Name: description, STRING: %lf, %lf, %*d, %*d", &i1, &i2);
-        if (n == 2) {
-            got_timestamp = true;
-            // printf("%f, %f, %f\n", i1, i2, i1 - i2);
-            fprinttfn(stdout, "@diff %f", i1 - i2);
+        if (strstr(line, "NetConnection.Connect.Success") != NULL) {
+            assert(clock_gettime(CLOCK_MONOTONIC_RAW, &connected_time) == 0);
         }
+
+        // double i1, i2;
+        // int n = sscanf(line, "Property: <Name: description, STRING: %lf, %lf, %*d, %*d", &i1, &i2);
+        // if (n == 2) {
+        //     got_timestamp = true;
+        //     // printf("%f, %f, %f\n", i1, i2, i1 - i2);
+        //     fprinttfn(stdout, "@diff %f", i1 - i2);
+        // }
     }
     
     // 
