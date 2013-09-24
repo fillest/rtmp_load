@@ -11,7 +11,7 @@
 #define ERRBUF_SZ 1024
 char errbuf[ERRBUF_SZ];
 
-// pthread_mutex_t mutexsum;
+typedef struct timespec _timespec;
 
 __thread bool got_timestamp = false;
 
@@ -21,10 +21,10 @@ void *process_stream (void *param) {
     if (params->delay_ms) {
         assert(params->delay_ms >= 0 && params->delay_ms <= 999);
         // fprinttfn(stderr, "gonna sleep %ims", params->delay_ms);
-        struct timespec st;
-        st.tv_sec = 0;
-        st.tv_nsec = params->delay_ms * 1000000;
-        assert(! nanosleep(&st, NULL));
+        _timespec sleep_time;
+        sleep_time.tv_sec = 0;
+        sleep_time.tv_nsec = params->delay_ms * 1000000;
+        assert(! nanosleep(&sleep_time, NULL));
     }
 
     fprinttfn(stdout, "@starting_thread");
@@ -35,11 +35,9 @@ void *process_stream (void *param) {
     struct timespec time_connecting;
     assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_connecting) == 0);
 
-    AVFormatContext *fctx = NULL;
-    // pthread_mutex_lock(&mutexsum);
+    AVFormatContext *avformat_context = NULL;
     // fprintf(stderr, "str: %s\n", params->rtmp_string);
-    int err = avformat_open_input(&fctx, params->rtmp_string, NULL, NULL); 
-    // pthread_mutex_unlock(&mutexsum);
+    int err = avformat_open_input(&avformat_context, params->rtmp_string, NULL, NULL); 
     if (err != 0) {
         av_strerror(err, errbuf, ERRBUF_SZ);
         fprintf(stderr, "avformat_open_input() failed: %s\n", errbuf);
@@ -49,9 +47,7 @@ void *process_stream (void *param) {
     //***NetStream.Timestamp shows in log here already
 
     //*** it reads several frames
-    // pthread_mutex_lock(&mutexsum);
-    err = avformat_find_stream_info(fctx, NULL);
-    // pthread_mutex_unlock(&mutexsum);
+    err = avformat_find_stream_info(avformat_context, NULL);
     if (err < 0) {
         av_strerror(err, errbuf, ERRBUF_SZ);
         fprintf(stderr, "avformat_find_stream_info() failed: %s\n", errbuf);
@@ -59,12 +55,12 @@ void *process_stream (void *param) {
     }
 
     /* Dump information about file onto standard error */
-    // av_dump_format(fctx, 0, "t.flv", false);
+    // av_dump_format(avformat_context, 0, "t.flv", false);
 
     int videoStream = -1;
-    for (int i = 0; i < fctx->nb_streams; i++) {
+    for (int i = 0; i < avformat_context->nb_streams; i++) {
         // fprintf(stderr, "detected stream %i\n", i);
-        if (fctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+        if (avformat_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
             assert(videoStream == -1);
             videoStream = i;
         }
@@ -83,7 +79,7 @@ void *process_stream (void *param) {
     int buffered_frame_num = 0;
     int total_frame_num  = 0;
 
-    while ((err = av_read_frame(fctx, &pkt)) == 0) { //"Technically a packet can contain partial frames or other bits of data, but ffmpeg's parser ensures that the packets we get contain either complete or multiple frames. "
+    while ((err = av_read_frame(avformat_context, &pkt)) == 0) { //"Technically a packet can contain partial frames or other bits of data, but ffmpeg's parser ensures that the packets we get contain either complete or multiple frames. "
         if (pkt.stream_index == videoStream) {
             if (! total_frame_num) {
                 struct timespec time_first_frame;
@@ -120,7 +116,7 @@ void *process_stream (void *param) {
     av_strerror(err, errbuf, ERRBUF_SZ);
     fprinttfn(stdout, "@stopping_thread %s", errbuf);  //timeout in rtmp string leads to "End of file"
 
-    avformat_close_input(&fctx);
+    avformat_close_input(&avformat_context);
 
     pthread_exit(NULL);
 }
@@ -187,16 +183,6 @@ int main (int argc, char *argv[]) {
         exit(EXIT_SUCCESS);
     }
 
-    // const char *opt_thread_num;
-    // int thread_num  = 1;
-    // if (gopt_arg(options, 't', &opt_thread_num)) {
-    //     thread_num = atoi(opt_thread_num);
-    //     if (! thread_num) {
-    //         fprintf(stderr, "invalid thread num was passed\n");
-    //         exit(EXIT_FAILURE);
-    //     }
-    // }
-
     gopt_free(options);
 
     if (argc != 2) {
@@ -225,8 +211,8 @@ int main (int argc, char *argv[]) {
 
     // av_log_set_level(AV_LOG_ERROR);
     // av_log_set_level(AV_LOG_INFO); //http://libav.org/doxygen/master/log_8h.html
-    av_log_set_level(AV_LOG_VERBOSE); // for rtmp
-    // av_log_set_level(AV_LOG_DEBUG);
+    av_log_set_level(AV_LOG_VERBOSE); // for parsing lib log
+    // av_log_set_level(AV_LOG_DEBUG); // shows binary packet data
     
 
     //TODO http://libav.org/doxygen/master/librtmp_8c_source.html#l00080
@@ -242,70 +228,7 @@ int main (int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-
-    // fprinttfn(stderr, "spawning %i thread(s)", thread_num);
-
-    // pthread_mutex_init(&mutexsum, NULL);
-
-    // pthread_t threads[9000];
-    // pthread_t *threads = (pthread_t *) malloc(sizeof(pthread_t) * thread_num);
-    // if (threads == NULL) {
-    //     fprintf(stderr, "failed to allocate threads\n");
-    //     exit(EXIT_FAILURE);
-    // }
-
-    // struct timeval time1;
-    // gettimeofday(&time1, NULL);
-    // srand48((unsigned int) time1.tv_usec);
-    // printf("%f\n", drand48());
-
-    // srand(time(NULL)); //need?
-
-    // fprinttfn(stdout, "starting");
-
-    // pthread_attr_t attr;
-    // pthread_attr_init(&attr);
-    // pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    // pthread_attr_setstacksize (&attr, stacksize);
-    // int r;
-    // struct timespec st;
     lua_call(lua_state, 0, 0);
-    // void *status;
-    // pthread_join(threads[0], &status);
-    // exit(0);
-
-
-
-
-
-    // for (int i = 0; i < thread_num; ++i) {
-        // Thread_param params = {.rtmp_string = "rtmp://localhost:1935/ app=live playpath=t timeout=30", .id = i};
-        // r = pthread_create(&threads[i], &attr, process_stream, &params);
-        // if (r) {
-        //     printf("return code from pthread_create() is %d\n", r);
-        //     exit(EXIT_FAILURE);
-        // }
-
-        // if (thread_num > 1) {
-        //     st.tv_sec = 0;
-        //     st.tv_nsec = rand_inv(0, 999) * 1000000;
-        //     assert(! nanosleep(&st, NULL));
-        // }
-    // }
-    // fprinttfn(stderr, "all threads were spawned");
-    
-    // pthread_attr_destroy(&attr);
-    // for (int i = 0; i < thread_num; ++i) {
-        // void *status;
-        // r = pthread_join(threads[i], &status);
-        // if (r) {
-            // printf("ERROR; return code from pthread_join() is %d\n", r);
-            // exit(EXIT_FAILURE);
-         // }
-    // }
-    // pthread_mutex_destroy(&mutexsum);
-
-    // free((void *) threads);
 
     lua_close(lua_state);
 
