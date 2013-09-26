@@ -71,49 +71,54 @@ void *process_stream (void *param) {
         exit(1);
     }
 
+
+    int buffered_frame_num = 0;
+    bool is_first_frame = true;
+
     AVPacket packet;
     av_init_packet(&packet);
 
-    _timespec time_last;
-    assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_last) == 0);
+    _timespec start_time;
+    assert(clock_gettime(CLOCK_MONOTONIC_RAW, &start_time) == 0);
 
-    int buffered_frame_num = 0;
-    int total_frame_num  = 0;
-
-    while ((err = av_read_frame(avformat_context, &packet)) == 0) { //"Technically a packet can contain partial frames or other bits of data, but ffmpeg's parser ensures that the packets we get contain either complete or multiple frames. "
+    //"Technically a packet can contain partial frames or other bits of data, but ffmpeg's parser ensures that the packets we get contain either complete or multiple frames."
+    while ((err = av_read_frame(avformat_context, &packet)) == 0) {
         if (packet.stream_index == videoStream) {
-            if (! total_frame_num) {
-                _timespec time_first_frame;
-                assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_first_frame) == 0);
-                _timespec d = diff_ts(connected_time, time_first_frame);
-                fprinttfn(stdout, "@first_frame %ld %ld", d.tv_sec, d.tv_nsec); //? tv_sec is time_t..
+            if (is_first_frame) {
+                _timespec first_frame_time;
+                assert(clock_gettime(CLOCK_MONOTONIC_RAW, &first_frame_time) == 0);
+                _timespec first_frame_latency = diff_ts(connected_time, first_frame_time);
+                fprinttfn(stdout, "@first_frame %ld %ld", first_frame_latency.tv_sec, first_frame_latency.tv_nsec);
 
                 // if (params->is_live && (! got_timestamp)) {
                 //     fprinttfn(stdout, "@error not_live");
                 // }
             }
-            _timespec time_next;
-            assert(clock_gettime(CLOCK_MONOTONIC_RAW, &time_next) == 0);
-            _timespec d = diff_ts(time_last, time_next);
 
-            total_frame_num++;
+            _timespec cur_time;
+            assert(clock_gettime(CLOCK_MONOTONIC_RAW, &cur_time) == 0);
+            _timespec time_passed = diff_ts(start_time, cur_time);
 
-            if (d.tv_sec > 0) {
+            is_first_frame = false;
+            buffered_frame_num++;
+
+            if (time_passed.tv_sec > 0) {
+                buffered_frame_num -= time_passed.tv_sec * 25;
                 fprinttfn(stdout, "@buffered_frame_num %i", buffered_frame_num);
-                buffered_frame_num -= d.tv_sec * 25; //TODO maybe not accurate (ms)
-                time_last = time_next;
+                //TODO !!! tv_nsec
+
+                start_time = cur_time;
 
                 // if (buffered_frame_num < 0) {
                 //     fprinttfn(stdout, "@underrun %i", buffered_frame_num);
                 // }
             }
 
-            buffered_frame_num++;
-
             av_free_packet(&packet);
             //av_init_packet(&packet);? -- there's no call in http://libav.org/doxygen/master/pktdumper_8c_source.html but there is in some snippets
         }
     }
+
     av_strerror(err, errbuf, ERRBUF_SZ);
     fprinttfn(stdout, "@stopping_thread %s", errbuf);  //timeout in rtmp string leads to "End of file"
 
