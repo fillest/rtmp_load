@@ -9,7 +9,7 @@
 #include <time.h>
 
 
-struct timespec diff_ts (struct timespec start, struct timespec end);
+struct timespec subtract_timespec (struct timespec finish, struct timespec start);
 
 int handle_av_lock (void **mtx, enum AVLockOp op);
 

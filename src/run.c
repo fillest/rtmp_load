@@ -81,13 +81,20 @@ void *process_stream (void *param) {
     _timespec start_time;
     assert(clock_gettime(CLOCK_MONOTONIC_RAW, &start_time) == 0);
 
+    /*
+    So we read the frames, accumulate the numbers and check passed time. When N seconds has passed, we subtract
+    FPS * N from accumulated frame number implying a "player" consumes FPS and there should be >= FPS frames in buffer each second
+    */
+
+    //TODO is there any client rate limiting logic?
+
     //"Technically a packet can contain partial frames or other bits of data, but ffmpeg's parser ensures that the packets we get contain either complete or multiple frames."
     while ((err = av_read_frame(avformat_context, &packet)) == 0) {
         if (packet.stream_index == videoStream) {
             if (is_first_frame) {
                 _timespec first_frame_time;
                 assert(clock_gettime(CLOCK_MONOTONIC_RAW, &first_frame_time) == 0);
-                _timespec first_frame_latency = diff_ts(connected_time, first_frame_time);
+                _timespec first_frame_latency = subtract_timespec(first_frame_time, connected_time);
                 fprinttfn(stdout, "@first_frame %ld %ld", first_frame_latency.tv_sec, first_frame_latency.tv_nsec);
 
                 // if (params->is_live && (! got_timestamp)) {
@@ -97,15 +104,16 @@ void *process_stream (void *param) {
 
             _timespec cur_time;
             assert(clock_gettime(CLOCK_MONOTONIC_RAW, &cur_time) == 0);
-            _timespec time_passed = diff_ts(start_time, cur_time);
+            _timespec time_passed = subtract_timespec(cur_time, start_time);
 
             is_first_frame = false;
             buffered_frame_num++;
 
             if (time_passed.tv_sec > 0) {
                 buffered_frame_num -= time_passed.tv_sec * 25;
+                //TODO !!! time_passed.tv_nsec
+
                 fprinttfn(stdout, "@buffered_frame_num %i", buffered_frame_num);
-                //TODO !!! tv_nsec
 
                 start_time = cur_time;
 

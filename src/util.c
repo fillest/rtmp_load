@@ -1,17 +1,16 @@
 #include "util.h"
 
 
-struct timespec diff_ts (struct timespec start, struct timespec end) {
-    //TODO use difftime?
-    struct timespec temp;
-    if ((end.tv_nsec-start.tv_nsec) < 0) {
-        temp.tv_sec = end.tv_sec-start.tv_sec - 1;
-        temp.tv_nsec = 1e9 + end.tv_nsec - start.tv_nsec;
+struct timespec subtract_timespec (struct timespec finish, struct timespec start) {
+    struct timespec result;
+    if ((finish.tv_nsec - start.tv_nsec) < 0) {
+        result.tv_sec = finish.tv_sec - start.tv_sec - 1;
+        result.tv_nsec = (finish.tv_nsec - start.tv_nsec) + 1e9;
     } else {
-        temp.tv_sec = end.tv_sec - start.tv_sec;
-        temp.tv_nsec = end.tv_nsec - start.tv_nsec;
+        result.tv_sec = finish.tv_sec - start.tv_sec;
+        result.tv_nsec = finish.tv_nsec - start.tv_nsec;
     }
-    return temp;
+    return result;
 }
 
 int handle_av_lock (void **mtx, enum AVLockOp op) {
