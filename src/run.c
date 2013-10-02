@@ -122,9 +122,9 @@ void *process_stream (void *param) {
                 // }
             }
 
-            av_free_packet(&packet);
-            //av_init_packet(&packet);? -- there's no call in http://libav.org/doxygen/master/pktdumper_8c_source.html but there is in some snippets
         }
+        av_free_packet(&packet);
+        // av_init_packet(&packet); //? -- there's no call in http://libav.org/doxygen/master/pktdumper_8c_source.html but there is in some snippets
     }
 
     av_strerror(err, errbuf, ERRBUF_SZ);
