@@ -60,6 +60,7 @@ class Rtmp_load (bold.builders.CProgram):
 	]
 	libs = [
 		'rt',
+		'dl',
 		'avformat',
 		'avcodec',
 		'avutil',
