@@ -34,7 +34,7 @@ void *process_stream (void *param) {
     fprinttfn(stdout, "@starting_thread %i", params->id);
 
     // _timespec start_time;
-    // assert(clock_gettime(CLOCK_MONOTONIC_RAW, &start_time) == 0);
+    // assert(clock_gettime(CLOCK_MONOTONIC, &start_time) == 0);
 
     AVFormatContext *avformat_context = NULL;
     // fprintf(stderr, "str: %s\n", params->rtmp_string);
@@ -79,7 +79,7 @@ void *process_stream (void *param) {
     av_init_packet(&packet);
 
     _timespec start_time;
-    assert(clock_gettime(CLOCK_MONOTONIC_RAW, &start_time) == 0);
+    assert(clock_gettime(CLOCK_MONOTONIC, &start_time) == 0);
 
     /*
     So we read the frames, accumulate the numbers and check passed time. When N seconds has passed, we subtract
@@ -93,7 +93,7 @@ void *process_stream (void *param) {
         if (packet.stream_index == videoStream) {
             if (is_first_frame) {
                 _timespec first_frame_time;
-                assert(clock_gettime(CLOCK_MONOTONIC_RAW, &first_frame_time) == 0);
+                assert(clock_gettime(CLOCK_MONOTONIC, &first_frame_time) == 0);
                 _timespec first_frame_latency = subtract_timespec(first_frame_time, connected_time);
                 fprinttfn(stdout, "@first_frame %ld %ld", first_frame_latency.tv_sec, first_frame_latency.tv_nsec);
 
@@ -103,7 +103,7 @@ void *process_stream (void *param) {
             }
 
             _timespec cur_time;
-            assert(clock_gettime(CLOCK_MONOTONIC_RAW, &cur_time) == 0);
+            assert(clock_gettime(CLOCK_MONOTONIC, &cur_time) == 0);
             _timespec time_passed = subtract_timespec(cur_time, start_time);
 
             is_first_frame = false;
@@ -157,7 +157,7 @@ void av_log_my_callback (void* ptr, int level, const char* fmt, va_list vl) {
         // fputs(line, stderr);
 
         if (strstr(line, "NetConnection.Connect.Success") != NULL) {
-            assert(clock_gettime(CLOCK_MONOTONIC_RAW, &connected_time) == 0);
+            assert(clock_gettime(CLOCK_MONOTONIC, &connected_time) == 0);
         }
 
         // double i1, i2;
