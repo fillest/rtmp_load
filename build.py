@@ -45,7 +45,7 @@ class Rtmp_load (bold.builders.CProgram):
 	sources = 'src/*.c'
 	deps_include_missing_header = True
 	gopt_flags = '-DUSE_SYSEXITS'
-	compile_flags = '-O3 -g -std=gnu99 -Wall -pthread ' + gopt_flags
+	compile_flags = '-O2 -g -std=gnu99 -Wall -pthread ' + gopt_flags
 	includes = [
 		Libav.src_copy_path,
 		# '/usr/include/lua5.1/',
