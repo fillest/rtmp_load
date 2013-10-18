@@ -61,8 +61,9 @@ static void laction(int i)
 
 static void print_usage(void)
 {
-  fprintf(stderr,
-  "usage: %s [options]... [script [args]...].\n"
+  fputs("usage: ", stderr);
+  fputs(progname, stderr);
+  fputs(" [options]... [script [args]...].\n"
   "Available options are:\n"
   "  -e chunk  Execute string " LUA_QL("chunk") ".\n"
   "  -l name   Require library " LUA_QL("name") ".\n"
@@ -73,16 +74,14 @@ static void print_usage(void)
   "  -v        Show version information.\n"
   "  -E        Ignore environment variables.\n"
   "  --        Stop handling options.\n"
-  "  -         Execute stdin and stop handling options.\n"
-  ,
-  progname);
+  "  -         Execute stdin and stop handling options.\n", stderr);
   fflush(stderr);
 }
 
 static void l_message(const char *pname, const char *msg)
 {
-  if (pname) fprintf(stderr, "%s: ", pname);
-  fprintf(stderr, "%s\n", msg);
+  if (pname) { fputs(pname, stderr); fputc(':', stderr); fputc(' ', stderr); }
+  fputs(msg, stderr); fputc('\n', stderr);
   fflush(stderr);
 }
 
@@ -499,15 +498,15 @@ static int handle_luainit(lua_State *L)
     return dostring(L, init, "=" LUA_INIT);
 }
 
-struct Smain {
+static struct Smain {
   char **argv;
   int argc;
   int status;
-};
+} smain;
 
 static int pmain(lua_State *L)
 {
-  struct Smain *s = (struct Smain *)lua_touserdata(L, 1);
+  struct Smain *s = &smain;
   char **argv = s->argv;
   int script;
   int flags = 0;
@@ -556,17 +555,16 @@ static int pmain(lua_State *L)
 int main(int argc, char **argv)
 {
   int status;
-  struct Smain s;
   lua_State *L = lua_open();  /* create state */
   if (L == NULL) {
     l_message(argv[0], "cannot create state: not enough memory");
     return EXIT_FAILURE;
   }
-  s.argc = argc;
-  s.argv = argv;
-  status = lua_cpcall(L, pmain, &s);
+  smain.argc = argc;
+  smain.argv = argv;
+  status = lua_cpcall(L, pmain, NULL);
   report(L, status);
   lua_close(L);
-  return (status || s.status) ? EXIT_FAILURE : EXIT_SUCCESS;
+  return (status || smain.status) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
