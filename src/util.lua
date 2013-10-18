@@ -80,5 +80,17 @@ function _M.nanosleep (sec, nanosec)
 	assert(C.nanosleep(t, nil) == 0)
 end
 
+function _M.random_seed_with_urandom ()
+	local f = assert(io.popen('od -vAn -N4 -tu4 < /dev/urandom', 'r'))
+	local seed = tonumber(assert(f:read('*a')))
+	f:close()
+	math.randomseed(seed)
+end
+
+function _M.timestamp_now ()
+	--allows JIT to compile (NYI: FastFunc os.time)
+	return tonumber(C.time(nil))
+end
+
 
 return _M
