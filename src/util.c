@@ -13,25 +13,28 @@ struct timespec subtract_timespec (struct timespec finish, struct timespec start
     return result;
 }
 
-int handle_av_lock (void **mtx, enum AVLockOp op) {
+int handle_av_lock (void **mutex, enum AVLockOp op) {
     switch (op) {
        case AV_LOCK_CREATE:
-            *mtx = malloc(sizeof(pthread_mutex_t));
-            assert(*mtx != NULL);
-            pthread_mutex_init(*mtx, NULL);
+            // fprintf(stderr, "AV_LOCK_CREATE\n");
+            *mutex = malloc(sizeof(pthread_mutex_t));
+            assert(*mutex != NULL);
+            pthread_mutex_init(*mutex, NULL);
             return 0;
        case AV_LOCK_OBTAIN:
-            // fprintf(stderr, "lock\n");
-            pthread_mutex_lock(*mtx);
+            // fprintf(stderr, "AV_LOCK_OBTAIN\n");
+            pthread_mutex_lock(*mutex);
             return 0;
        case AV_LOCK_RELEASE:
-            // fprintf(stderr, "unlock\n");
-            pthread_mutex_unlock(*mtx);
+            // fprintf(stderr, "AV_LOCK_RELEASE\n");
+            pthread_mutex_unlock(*mutex);
             return 0;
        case AV_LOCK_DESTROY:
-            pthread_mutex_destroy(*mtx);
-            free(*mtx);
+            // fprintf(stderr, "AV_LOCK_DESTROY\n");
+            pthread_mutex_destroy(*mutex);
+            free(*mutex);
             return 0;
+        default:
+            return 1;
     }
-    return 1;
 }

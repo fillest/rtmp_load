@@ -214,11 +214,15 @@ int main (int argc, char *argv[]) {
 
     lua_State *lua_state = luaL_newstate();
     assert(lua_state != NULL);
+    lua_gc(lua_state, LUA_GCSTOP, 0);
     luaL_openlibs(lua_state);
+    lua_gc(lua_state, LUA_GCRESTART, -1);
     int r = luaL_loadfile(lua_state, script_path);
     if (r != 0) {
         if (r == LUA_ERRSYNTAX) {
             fprintf(stderr, "error loading %s, syntax error: %s\n", script_path, lua_tostring(lua_state, -1));
+        } else if (r == LUA_ERRFILE) {
+            fprintf(stderr, "failed to open %s: %s\n", script_path, lua_tostring(lua_state, -1));
         } else {
             fprintf(stderr, "error loading %s, ret = %i\n", script_path, r);
         }
@@ -248,11 +252,13 @@ int main (int argc, char *argv[]) {
 
     lua_call(lua_state, 0, 0);
 
+
     lua_close(lua_state);
 
     av_lockmgr_register(NULL);
     avformat_network_deinit();
 
-    pthread_exit(NULL);
-    // exit(0);
+
+    exit(EXIT_SUCCESS);
+    return 0;
 }

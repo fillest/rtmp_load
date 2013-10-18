@@ -1,6 +1,7 @@
 # rtmp_load — a load testing tool for RTMP servers
 
 ## Setup
+Tested on Ubuntu 12 and Debian 6
 ```bash
 sudo apt-get install librtmp0 librtmp-dev yasm pkg-config
 sudo apt-get install python-virtualenv
@@ -47,6 +48,10 @@ There are three layers:
 
 ## Issues
 Please submit any bugs or feedback to [the issue tracker](https://github.com/fillest/rtmp_load/issues)
+
+## Development
+Libav 9.9 works bad - "unknown error" from avformat_open_input, strange timings (lots of frame underruns which doesn't happen on 0.8.8)
+Though it seems like url_alloc_for_protocol(avformat_open_input) memleaks in 0.8.8
 
 ## License
 See licence.txt ([The MIT License](http://www.opensource.org/licenses/mit-license.php))

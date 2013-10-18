@@ -6,15 +6,15 @@ import datetime
 import argparse
 
 
-def get_median (l):
-	sv = sorted(l)
+def get_median (values):
+	sv = sorted(values)
 	if len(sv) % 2 == 1:
 		return sv[(len(sv) + 1) / 2 - 1]
 	else:
 		lower = sv[len(sv) / 2 - 1]
 		upper = sv[len(sv) / 2]
 
-		return (float(lower + upper)) / 2
+		return float(lower + upper) / 2.0
 
 def parse_args ():
 	parser = argparse.ArgumentParser()
