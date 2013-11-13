@@ -45,7 +45,7 @@ void *track_fps (void *args_) {
         int frame_num = args->frame_num;
         bool should_stop = args->should_stop;
         pthread_mutex_unlock(&(args->mutex));
-        // fprinttfn(stdout, "@buf_frame_num %i", frame_num);
+        fprinttfn(stdout, "@buf_frame_num %i", frame_num);
 
         if (should_stop) {
             fprintf(stderr, "note: stopping track_fps thread\n");
@@ -91,7 +91,7 @@ void *process_stream (void *args_) {
         assert(! nanosleep(&sleep_time, NULL));
     }
 
-    // fprinttfn(stdout, "@starting_thread %i", params->id);
+    fprinttfn(stdout, "@starting_thread %i", params->id);
 
     // timespec_ start_time;
     // assert(clock_gettime(CLOCK_MONOTONIC, &start_time) == 0);
@@ -163,7 +163,7 @@ void *process_stream (void *args_) {
 
                 timespec_ first_frame_time = get_time();
                 timespec_ first_frame_latency = subtract_timespec(first_frame_time, connected_time);
-                // fprinttfn(stdout, "@first_frame %ld %ld", first_frame_latency.tv_sec, first_frame_latency.tv_nsec);
+                fprinttfn(stdout, "@first_frame %ld %ld", first_frame_latency.tv_sec, first_frame_latency.tv_nsec);
 
                 // if (params->is_live && (! got_timestamp)) {
                 //     fprinttfn(stdout, "@error not_live");
