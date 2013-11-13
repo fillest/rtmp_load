@@ -17,11 +17,15 @@ class Libav (bold.builders.Builder):
 		shutil.copytree(self.src_path, self.resolve(self.src_copy_path))
 
 		with util.change_cwd(self.resolve(self.src_copy_path)):
-			#--disable-debug --enable-gpl --enable-nonfree
+			# --disable-debug --enable-gpl --enable-nonfree
 			self.shell_run("./configure --enable-librtmp --disable-doc --disable-ffmpeg --disable-avconv"
 				" --disable-avplay --disable-avprobe --disable-avserver --disable-swscale --disable-avdevice"
 				" --disable-avfilter --enable-runtime-cpudetect --disable-encoders"
 				" && make --jobs %i" % (multiprocessing.cpu_count() * 2))
+			# self.shell_run("./configure --enable-librtmp --disable-doc --disable-ffmpeg"
+			# 	" --disable-ffplay --disable-ffprobe --disable-ffserver --disable-swscale --disable-avdevice"
+			# 	" --disable-avfilter --enable-runtime-cpudetect --disable-encoders"
+			# 	" && make --jobs %i" % (multiprocessing.cpu_count() * 2))
 		self._update_target(self.target)
 
 class Luajit (bold.builders.Builder):

@@ -2,3 +2,4 @@ venv/*
 .bold_state
 build/*
 *.pyc
+*.log
