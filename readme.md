@@ -49,15 +49,22 @@ There are three layers:
 ## Issues
 Please submit any bugs or feedback to [the issue tracker](https://github.com/fillest/rtmp_load/issues)
 
+
 ## Development
 ```bash
 pip install -r requirements_dev.txt
 ```
+
+### Updating libav
+Remove "version.h" from .gitignore becaused this file is needed for building
+
 Libav 9.9 works bad - "unknown error" from avformat_open_input, strange timings (lots of frame underruns which doesn't happen on 0.8.8)
 Though it seems like url_alloc_for_protocol(avformat_open_input) memleaks in 0.8.8
 
+
 ## License
 See licence.txt ([The MIT License](http://www.opensource.org/licenses/mit-license.php))
+
 
 ## TODO
 * try ffmpeg again
