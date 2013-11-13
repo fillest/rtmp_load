@@ -690,7 +690,8 @@ static int decodeChannelSoundUnit (ATRAC3Context *q, GetBitContext *gb, channel_
     if (result) return result;
 
     pSnd->numComponents = decodeTonalComponents (gb, pSnd->components, pSnd->bandsCoded);
-    if (pSnd->numComponents == -1) return -1;
+    if (pSnd->numComponents < 0)
+        return pSnd->numComponents;
 
     numSubbands = decodeSpectrum (gb, pSnd->spectrum);
 
@@ -772,7 +773,7 @@ static int decodeFrame(ATRAC3Context *q, const uint8_t* databuf,
 
 
         /* set the bitstream reader at the start of the second Sound Unit*/
-        init_get_bits(&q->gb,ptr1,q->bits_per_frame);
+        init_get_bits(&q->gb, ptr1, (q->bytes_per_frame - i) * 8);
 
         /* Fill the Weighting coeffs delay buffer */
         memmove(q->weighting_delay,&(q->weighting_delay[2]),4*sizeof(int));
@@ -975,6 +976,8 @@ static av_cold int atrac3_decode_init(AVCodecContext *avctx)
     if (q->codingMode == STEREO) {
         av_log(avctx,AV_LOG_DEBUG,"Normal stereo detected.\n");
     } else if (q->codingMode == JOINT_STEREO) {
+        if (avctx->channels != 2)
+            return AVERROR_INVALIDDATA;
         av_log(avctx,AV_LOG_DEBUG,"Joint stereo detected.\n");
     } else {
         av_log(avctx,AV_LOG_ERROR,"Unknown channel coding mode %x!\n",q->codingMode);

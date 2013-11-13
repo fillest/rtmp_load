@@ -121,7 +121,7 @@ static int decode_frame(AVCodecContext *avctx,
     s->nb_planes   = (tmp >> 4) + 1;
     bpp            = bits_per_plane * s->nb_planes;
     if (bits_per_plane > 8 || bpp < 1 || bpp > 32) {
-        av_log_ask_for_sample(s, "unsupported bit depth\n");
+        av_log_ask_for_sample(avctx, "unsupported bit depth\n");
         return AVERROR_INVALIDDATA;
     }
 
@@ -226,16 +226,17 @@ static int decode_frame(AVCodecContext *avctx,
                 if (bits_per_plane == 8) {
                     picmemset_8bpp(s, val, run, &x, &y);
                     if (y < 0)
-                        break;
+                        goto finish;
                 } else {
                     picmemset(s, val, run, &x, &y, &plane, bits_per_plane);
                 }
             }
         }
     } else {
-        av_log_ask_for_sample(s, "uncompressed image\n");
+        av_log_ask_for_sample(avctx, "uncompressed image\n");
         return avpkt->size;
     }
+finish:
 
     *data_size = sizeof(AVFrame);
     *(AVFrame*)data = s->frame;

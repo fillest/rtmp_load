@@ -382,6 +382,8 @@ static int decode_p_frame(FourXContext *f, const uint8_t *buf, int length){
     unsigned int bitstream_size, bytestream_size, wordstream_size, extra, bytestream_offset, wordstream_offset;
 
     if(f->version>1){
+        if (length < 20)
+            return AVERROR_INVALIDDATA;
         extra=20;
         bitstream_size= AV_RL32(buf+8);
         wordstream_size= AV_RL32(buf+12);
@@ -533,7 +535,10 @@ static int decode_i_mb(FourXContext *f){
     return 0;
 }
 
-static const uint8_t *read_huffman_tables(FourXContext *f, const uint8_t * const buf){
+static const uint8_t *read_huffman_tables(FourXContext *f,
+                                          const uint8_t * const buf,
+                                          int len)
+{
     int frequency[512];
     uint8_t flag[512];
     int up[512];
@@ -551,11 +556,19 @@ static const uint8_t *read_huffman_tables(FourXContext *f, const uint8_t * const
     for(;;){
         int i;
 
+        len -= end - start + 1;
+
+        if (end < start || len < 0)
+            return NULL;
+
         for(i=start; i<=end; i++){
             frequency[i]= *ptr++;
         }
         start= *ptr++;
         if(start==0) break;
+
+        if (--len < 0)
+            return NULL;
 
         end= *ptr++;
     }
@@ -689,7 +702,7 @@ static int decode_i_frame(FourXContext *f, const uint8_t *buf, int length){
         return -1;
     }
 
-    prestream = read_huffman_tables(f, prestream);
+    prestream = read_huffman_tables(f, prestream, prestream_size);
     if (!prestream) {
         av_log(f->avctx, AV_LOG_ERROR, "Error reading Huffman tables.\n");
         return AVERROR_INVALIDDATA;
@@ -734,17 +747,33 @@ static int decode_frame(AVCodecContext *avctx,
     AVFrame *p, temp;
     int i, frame_4cc, frame_size;
 
-    frame_4cc= AV_RL32(buf);
-    if(buf_size != AV_RL32(buf+4)+8 || buf_size < 20){
-        av_log(f->avctx, AV_LOG_ERROR, "size mismatch %d %d\n", buf_size, AV_RL32(buf+4));
+    if (buf_size < 20)
+        return AVERROR_INVALIDDATA;
+
+    if (avctx->width % 16 || avctx->height % 16) {
+        av_log(avctx, AV_LOG_ERROR,
+               "Dimensions non-multiple of 16 are invalid.\n");
+        return AVERROR_INVALIDDATA;
     }
+
+    if (buf_size < AV_RL32(buf + 4) + 8) {
+        av_log(f->avctx, AV_LOG_ERROR,
+               "size mismatch %d %d\n", buf_size, AV_RL32(buf + 4));
+    }
+
+    frame_4cc = AV_RL32(buf);
 
     if(frame_4cc == AV_RL32("cfrm")){
         int free_index=-1;
-        const int data_size= buf_size - 20;
-        const int id= AV_RL32(buf+12);
-        const int whole_size= AV_RL32(buf+16);
+        int id, whole_size;
+        const int data_size = buf_size - 20;
         CFrameBuffer *cfrm;
+
+        if (data_size < 0)
+            return AVERROR_INVALIDDATA;
+
+        id         = AV_RL32(buf + 12);
+        whole_size = AV_RL32(buf + 16);
 
         for(i=0; i<CFRAME_BUFFER_COUNT; i++){
             if(f->cfrm[i].id && f->cfrm[i].id < avctx->frame_number)
