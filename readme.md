@@ -1,6 +1,10 @@
 # rtmp_load — a load testing tool for RTMP servers
 
-Rough performance numbers (10k threads on one host): CPU 20-50% of each core (uses all cores; Xeon E5-2640, Debian 6 3.2.0-0.bpo), 4-6 Gbit network usage (some SD streams), 14GB RAM
+
+## About
+The tool spawns threads (with scriptable flow) which consume RTMP streams, parse them (only containers), collect some metrics (e.g. frames per second) and sumbit metrics to [Mistress stat server](https://github.com/fillest/mistress_stat) for aggregation, storage and visualization.
+
+Rough performance numbers for 10k threads on one host (Xeon E5-2640, Debian 6 3.2.0-0.bpo): 20-50% CPU of each of all cores, 4-6 Gbit network usage (streams had SD-quality), 14GB of RAM.
 
 
 ## Setup
@@ -46,14 +50,15 @@ Run the test:
 
 
 ## Design
+The design decisions were influenced by tight development time requirements :)
 There are three layers:
-* The C core that handles RTMP stream with [libav](http://libav.org/), [librtmp](http://rtmpdump.mplayerhq.hu/librtmp.3.html) and threads. It collects some metrics and writes it to stdout.
-* The Lua/LuaJIT scripting layer that manages threads and configuration
-* The Python script that launches the core, consumes the metrics from it and computes statistics
+* The C *core* that handles RTMP stream with [libav](http://libav.org/)/[librtmp](http://rtmpdump.mplayerhq.hu/librtmp.3.html) and OS threads. It collects some metrics and writes it to stdout
+* The Lua/LuaJIT *scripting layer* that manages threads and configuration
+* The Python *wrapper* script that launches the *core*, consumes the metrics from its stdout and pushes them to [Mistress stat server](https://github.com/fillest/mistress_stat)
 
 
-## Issues
-Please submit any bugs or feedback to [the issue tracker](https://github.com/fillest/rtmp_load/issues)
+## Feedback
+Please don't hesitate to submit any feedback to [the issue tracker](https://github.com/fillest/rtmp_load/issues)
 
 
 ## Development
@@ -62,15 +67,11 @@ pip install -r requirements_dev.txt
 ```
 
 ### Updating libav
-Remove "version.h" from .gitignore becaused this file is needed for building
+Remove "version.h" from .gitignore because this file is needed for building
 
 Libav 9.9 works bad - "unknown error" from avformat_open_input, strange timings (lots of frame underruns which doesn't happen on 0.8.8)
-Though it seems like url_alloc_for_protocol(avformat_open_input) memleaks in 0.8.8 (0.8.9 seems ok?)
+Though after heap profiling it seems like url_alloc_for_protocol(avformat_open_input) memleaks in 0.8.8 (-- 0.8.9 seems ok?)
 
 
 ## License
-See licence.txt ([The MIT License](http://www.opensource.org/licenses/mit-license.php))
-
-
-## TODO
-* try ffmpeg again
+[The MIT License](http://www.opensource.org/licenses/mit-license.php) (see license.txt)
